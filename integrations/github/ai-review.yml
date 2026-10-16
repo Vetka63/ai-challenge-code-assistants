@@ -1,0 +1,42 @@
+name: Request local AI review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions:
+  contents: read
+concurrency:
+  group: local-ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  request:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login == github.repository_owner
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Create metadata only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          pr = event["pull_request"]
+          request = {
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "pr": pr["number"],
+              "baseSha": pr["base"]["sha"],
+              "headSha": pr["head"]["sha"],
+              "runId": int(os.environ["GITHUB_RUN_ID"]),
+              "provider": "DEEPSEEK"
+          }
+          Path("review-request.json").write_text(json.dumps(request), encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as output:
+              output.write("Review request created. The local assistant will analyze it when online. This is not a completed review.\n")
+          PY
+      - name: Publish request artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ai-review-request
+          path: review-request.json
+          retention-days: 14
+          if-no-files-found: error

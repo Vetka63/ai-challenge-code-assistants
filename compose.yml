@@ -40,8 +40,13 @@ services:
       LOCAL_MODEL: ${LOCAL_MODEL:-qwen3:8b}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-${LLM_API_KEY:-}}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      REVIEW_REPOSITORY: ${REVIEW_REPOSITORY:-Vetka63/ai-challenge-game}
+      REVIEW_AUTHOR: ${REVIEW_AUTHOR:-Vetka63}
+      REVIEW_TOKEN_FILE: /run/day32/github-token
       ASSISTANTS_DB: /app/data/assistants.sqlite
-    volumes: ["assistant-data:/app/data"]
+    volumes:
+      - "assistant-data:/app/data"
+      - "./.local/day32:/run/day32:ro"
     ports: ["127.0.0.1:${API_PORT:-8682}:8080"]
     depends_on:
       project-mcp: { condition: service_healthy }

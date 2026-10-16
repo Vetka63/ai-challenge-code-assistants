@@ -30,6 +30,20 @@ class RecordStore(config: RuntimeConfig, private val mapper: ObjectMapper) {
             it.setString(1, kind); it.setString(2, id); it.setString(3, mapper.writeValueAsString(record)); it.executeUpdate()
         } }
     }
+    /** Уникальный ключ БД, а не exists→put, обеспечивает идемпотентную регистрацию. */
+    fun insertIfAbsent(kind: String, id: String, record: Any): Boolean = connect().use { c ->
+        c.prepareStatement("INSERT OR IGNORE INTO records(kind,id,payload) VALUES(?,?,?)").use {
+            it.setString(1, kind); it.setString(2, id); it.setString(3, mapper.writeValueAsString(record))
+            it.executeUpdate() == 1
+        }
+    }
+    /** Compare-and-set атомарно захватывает задание без транзакции на время сетевого I/O. */
+    fun replace(kind: String, id: String, expected: Any, replacement: Any): Boolean = connect().use { c ->
+        c.prepareStatement("UPDATE records SET payload=? WHERE kind=? AND id=? AND payload=?").use {
+            it.setString(1, mapper.writeValueAsString(replacement)); it.setString(2, kind); it.setString(3, id)
+            it.setString(4, mapper.writeValueAsString(expected)); it.executeUpdate() == 1
+        }
+    }
     /** Читает DTO конкретного домена, не изменяя его состояние. */
     fun <T> get(kind: String, id: String, type: Class<T>): T? = connect().use { c ->
         c.prepareStatement("SELECT payload FROM records WHERE kind=? AND id=?").use {

@@ -6,7 +6,10 @@
 
 Ветка дня 31: Kotlin/Spring Boot backend, Vue/TypeScript UI, SQLite,
 локальные embeddings, read-only Project MCP и агент с командой /help.
-Дни 32–34 остаются планом; PR Action, поддержка и запись файлов не включены.
+В ветке дня 32 добавлен домен review: GitHub polling, очередь SQLite,
+RAG по версиям PR, UI отчётов и шаблон workflow. Реальная автоматика
+требует локальный GitHub-токен и опубликованный workflow игры.
+Поддержка и запись файлов дней 33–34 не включены.
 
 ## Проект-источник
 
@@ -27,6 +30,8 @@
 Согласованный [план дней 31–34](docs/roadmap-days-31-34.md),
 [архитектура дня 31](docs/day31-architecture.md),
 [запуск и сценарий для видео](docs/day31-guide.md).
+День 32: [архитектура](docs/day32-architecture.md),
+[запуск и проверка](docs/day32-guide.md), [GitHub-токен](docs/day32-github-token.md).
 Для продолжения начните с [контекста разработки](docs/assistant-handoff.md).
 Подробнее: [контекст и границы](docs/project-context.md),
 [связь репозиториев](docs/repository-link.md), [правила работы](AGENTS.md).
