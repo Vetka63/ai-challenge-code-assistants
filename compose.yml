@@ -1,0 +1,61 @@
+name: ai-challenge-assistants-day31
+services:
+  project-mcp:
+    build: { context: ., args: { MODULE: project-mcp } }
+    environment:
+      PROJECT_ROOT: /project
+      GIT_OPTIONAL_LOCKS: "0"
+    volumes:
+      - type: bind
+        source: ${GAME_PROJECT_PATH:-../ai-challenge-game}
+        target: /project
+        read_only: true
+    ports: ["127.0.0.1:${MCP_PORT:-8684}:8080"]
+    restart: unless-stopped
+  ollama:
+    image: ollama/ollama:0.35.1
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_MODELS: /existing/models
+      OLLAMA_NO_CLOUD: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      LLAMA_ARG_CACHE_RAM: "0"
+      OLLAMA_FLASH_ATTENTION: "1"
+    volumes: ["existing-models:/existing:ro", "ollama-runtime:/root/.ollama"]
+    ports: ["127.0.0.1:${OLLAMA_PORT:-11438}:11434"]
+    gpus: all
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  backend:
+    build: { context: ., args: { MODULE: backend } }
+    environment:
+      PROJECT_MCP_URL: http://project-mcp:8080
+      OLLAMA_BASE_URL: http://ollama:11434
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-qwen3-embedding:0.6b}
+      LOCAL_MODEL: ${LOCAL_MODEL:-qwen3:8b}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-${LLM_API_KEY:-}}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-pro}
+      ASSISTANTS_DB: /app/data/assistants.sqlite
+    volumes: ["assistant-data:/app/data"]
+    ports: ["127.0.0.1:${API_PORT:-8682}:8080"]
+    depends_on:
+      project-mcp: { condition: service_healthy }
+      ollama: { condition: service_healthy }
+    restart: unless-stopped
+  client:
+    build: { context: client }
+    ports: ["127.0.0.1:${UI_PORT:-8683}:80"]
+    depends_on:
+      backend: { condition: service_healthy }
+    restart: unless-stopped
+volumes:
+  existing-models:
+    external: true
+    name: ${OLLAMA_MODELS_VOLUME:-ai-chat-local-llm_local-models}
+  ollama-runtime:
+  assistant-data:

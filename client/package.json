@@ -1,0 +1,13 @@
+{
+  "name": "code-assistants-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "vite --host 127.0.0.1", "build": "vue-tsc --noEmit && vite build", "test": "vitest run" },
+  "dependencies": { "vue": "3.5.43" },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.1", "typescript": "5.9.2", "vite": "7.3.6",
+    "vitest": "4.1.11", "vue-tsc": "3.0.6", "@types/node": "24.3.0"
+  },
+  "engines": { "node": ">=22.12.0" }
+}
