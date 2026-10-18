@@ -1,0 +1,70 @@
+name: ai-challenge-assistants-day35
+services:
+  workspace-mcp:
+    image: ai-challenge-assistants-day35-workspace-mcp
+    build: { context: ., args: { MODULE: workspace-mcp } }
+    environment:
+      WORKSPACE_SOURCE: /project
+      WORKSPACE_DATA: /app/workspaces
+    volumes:
+      - type: bind
+        source: ${GAME_PROJECT_PATH:-../ai-challenge-game}
+        target: /project
+        read_only: true
+      - workspace-data:/app/workspaces
+    restart: unless-stopped
+  project-mcp:
+    image: ai-challenge-assistants-day35-project-mcp
+    build: { context: ., args: { MODULE: project-mcp } }
+    environment: { PROJECT_ROOT: /project, GIT_OPTIONAL_LOCKS: '0' }
+    volumes:
+      - type: bind
+        source: ${GAME_PROJECT_PATH:-../ai-challenge-game}
+        target: /project
+        read_only: true
+    ports: ['127.0.0.1:${MCP_PORT:-8984}:8080']
+    restart: unless-stopped
+  support-mcp:
+    image: ai-challenge-assistants-day35-support-mcp
+    build: { context: ., args: { MODULE: support-mcp } }
+    environment: { SUPPORT_DATA: /app/support-data }
+    volumes: ['support-data:/app/support-data']
+    restart: unless-stopped
+  backend:
+    image: ai-challenge-assistants-day35-backend
+    build: { context: ., args: { MODULE: backend } }
+    environment:
+      PROJECT_MCP_URL: http://project-mcp:8080
+      SUPPORT_SERVICE_URL: http://support-mcp:8080
+      WORKSPACE_SERVICE_URL: http://workspace-mcp:8080
+      OLLAMA_BASE_URL: http://shared-ollama:11434
+      LOCAL_MODEL: ${LOCAL_MODEL:-qwen3:8b}
+      EMBEDDING_MODEL: qwen3-embedding:0.6b
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: deepseek-v4-pro
+      REVIEW_RUNTIME_ENABLED: 'false'
+      REVIEW_TOKEN_FILE: /run/no-github-token
+      ASSISTANTS_DB: /app/data/assistants.sqlite
+    volumes: ['assistant-data:/app/data']
+    ports: ['127.0.0.1:${API_PORT:-8982}:8080']
+    networks: [default, local-models]
+    depends_on:
+      workspace-mcp: { condition: service_healthy }
+      project-mcp: { condition: service_healthy }
+      support-mcp: { condition: service_healthy }
+    restart: unless-stopped
+  client:
+    image: ai-challenge-assistants-day35-client
+    build: { context: client }
+    ports: ['127.0.0.1:${UI_PORT:-8983}:80']
+    depends_on:
+      backend: { condition: service_healthy }
+    restart: unless-stopped
+volumes:
+  assistant-data:
+  workspace-data:
+  support-data:
+networks:
+  local-models:
+    external: true
+    name: ai-challenge-local-models

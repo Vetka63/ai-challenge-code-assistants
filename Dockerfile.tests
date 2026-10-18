@@ -1,0 +1,11 @@
+FROM gradle:9.6.1-jdk21
+WORKDIR /workspace
+COPY settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY backend backend
+COPY project-mcp project-mcp
+COPY support-contracts support-contracts
+COPY support-mcp support-mcp
+COPY workspace-contracts workspace-contracts
+COPY workspace-mcp workspace-mcp
+COPY cli cli
+RUN --mount=type=cache,id=code-assistants-gradle,sharing=locked,target=/home/gradle/.gradle gradle --no-daemon test

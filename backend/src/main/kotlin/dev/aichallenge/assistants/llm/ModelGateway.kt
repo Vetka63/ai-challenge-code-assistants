@@ -28,15 +28,17 @@ interface Embeddings {
 }
 /** Контракт генерации без скрытого fallback или автоматических повторов. */
 interface Generator { fun generate(provider: String, messages: List<LlmMessage>): Generation }
+/** Явный JSON-mode, не меняющий текстовые ответы остальных агентов. */
+interface JsonGenerator { fun generateJson(provider: String, messages: List<LlmMessage>): Generation }
 
 /** HTTP-адаптеры локальных embeddings и двух независимых генераторов. */
 @Component
-class ModelGateway(private val config: RuntimeConfig, private val mapper: ObjectMapper) : Embeddings, Generator, ToolGenerator {
+class ModelGateway(private val config: RuntimeConfig, private val mapper: ObjectMapper) : Embeddings, Generator, JsonGenerator, ToolGenerator {
     private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
     /** Отправляет JSON; ошибки не содержат ключ, request body или сырой ответ провайдера. */
-    private fun call(url: String, body: Any? = null, key: String? = null): JsonNode {
+    private fun call(url: String, body: Any? = null, key: String? = null, timeoutSeconds: Long = 180): JsonNode {
         try {
-            val builder = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(180))
+            val builder = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(timeoutSeconds))
             if (key != null) builder.header("Authorization", "Bearer $key")
             if (body == null) builder.GET() else builder.header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
@@ -69,7 +71,9 @@ class ModelGateway(private val config: RuntimeConfig, private val mapper: Object
         return vectors
     }
     /** Явно выбирает одного провайдера; ключ передаётся только заголовком HTTP. */
-    override fun generate(provider: String, messages: List<LlmMessage>): Generation {
+    override fun generate(provider: String, messages: List<LlmMessage>): Generation = generateRequest(provider, messages, false)
+    override fun generateJson(provider: String, messages: List<LlmMessage>): Generation = generateRequest(provider, messages, true)
+    private fun generateRequest(provider: String, messages: List<LlmMessage>, json: Boolean): Generation {
         val started = System.nanoTime()
         val cloud = provider == "DEEPSEEK"
         if (provider !in setOf("LOCAL", "DEEPSEEK")) throw AssistantFailure("PROVIDER", "Неизвестный провайдер")
@@ -77,9 +81,10 @@ class ModelGateway(private val config: RuntimeConfig, private val mapper: Object
         val model = if (cloud) config.deepseekModel else config.localModel
         val result = if (cloud) call("https://api.deepseek.com/chat/completions",
             mapOf("model" to model, "messages" to messages, "stream" to false, "temperature" to 0.2,
-                "thinking" to mapOf("type" to "disabled")), config.deepseekKey)
+                "thinking" to mapOf("type" to "disabled")) + if (json) mapOf("response_format" to mapOf("type" to "json_object")) else emptyMap(), config.deepseekKey)
         else call(config.ollamaUrl + "/api/chat", mapOf("model" to model, "messages" to messages,
-            "stream" to false, "think" to false, "options" to mapOf("temperature" to 0.2, "num_ctx" to 8192), "keep_alive" to "5m"))
+            "stream" to false, "think" to false, "options" to mapOf("temperature" to 0.2, "num_ctx" to 8192), "keep_alive" to "5m") +
+            if (json) mapOf("format" to "json") else emptyMap(), timeoutSeconds = if (json) 600 else 180)
         val text = if (cloud) result.path("choices").path(0).path("message").path("content").asText("") else result.path("message").path("content").asText("")
         val reason = if (cloud) result.path("choices").path(0).path("finish_reason").asText("") else result.path("done_reason").asText("")
         if (text.isBlank()) throw AssistantFailure("EMPTY_ANSWER", "Модель вернула пустой текст. Сообщение и диагностика сохранены.", 502)

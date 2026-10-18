@@ -34,6 +34,7 @@ class WorkspaceStore(@Value("$"+"{WORKSPACE_SOURCE:/project}") sourcePath: Strin
         .joinToString("") { "%02x".format(it) }
     /** Allowlist не зависит от указаний внутри документа или желания модели. */
     private fun allowed(path: String): Boolean = path == "README.md" ||
+        path == "AsciiArena/ProjectSettings/EditorBuildSettings.asset" ||
         (path.startsWith("docs/") && path.endsWith(".md")) ||
         (path.startsWith("AsciiArena/Assets/Prototype/") && path.endsWith(".cs"))
     /** Явно помеченная история до следующего заголовка не должна незаметно становиться текущей инструкцией. */
@@ -56,6 +57,8 @@ class WorkspaceStore(@Value("$"+"{WORKSPACE_SOURCE:/project}") sourcePath: Strin
     private fun sourceFiles(): List<Path> {
         val found = mutableListOf<Path>()
         if (Files.isRegularFile(source.resolve("README.md"), LinkOption.NOFOLLOW_LINKS)) found.add(source.resolve("README.md"))
+        val buildSettings = source.resolve("AsciiArena/ProjectSettings/EditorBuildSettings.asset")
+        if (Files.isRegularFile(buildSettings, LinkOption.NOFOLLOW_LINKS)) found.add(buildSettings)
         listOf("docs", "AsciiArena/Assets/Prototype").forEach { dir ->
             val base = source.resolve(dir)
             if (Files.exists(base)) {
@@ -114,6 +117,22 @@ class WorkspaceStore(@Value("$"+"{WORKSPACE_SOURCE:/project}") sourcePath: Strin
         val info = SnapshotInfo(id, fingerprint, files.size, Instant.now().toString())
         write(target, WorkspaceSnapshot(info, files))
         return info
+    }
+    /** Снимок по содержимому для наблюдателя: одинаковые исходники не размножают полные копии. */
+    @Synchronized fun capture(): WorkspaceSnapshot {
+        val first = sourceFiles()
+        val files = first.map(::sourceFile)
+        if (files.isEmpty()) fail("EMPTY_SOURCE", "Нет разрешённых исходников для снимка.")
+        if (files.sumOf { it.text.toByteArray().size.toLong() } > 20_000_000) fail("SOURCE_LIMIT", "Снимок превышает 20 МБ.")
+        val second = sourceFiles()
+        if (first != second || files != second.map(::sourceFile)) fail("SOURCE_CHANGED", "Источники изменились во время чтения.", 409)
+        val fingerprint = hash(files.joinToString("\n") { it.path + ":" + it.hash })
+        val id = UUID.nameUUIDFromBytes("passport:$fingerprint".toByteArray()).toString()
+        val target = data.resolve("snapshot-$id.json")
+        if (Files.exists(target)) return snapshot(id)
+        val snapshot = WorkspaceSnapshot(SnapshotInfo(id, fingerprint, files.size, Instant.now().toString()), files)
+        write(target, snapshot)
+        return snapshot
     }
     /** Выдаёт метаданные без отправки всего проекта модели. */
     @Synchronized fun list(): List<SnapshotInfo> = Files.list(data).use { paths ->
