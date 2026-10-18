@@ -3,4 +3,5 @@ import App from './App.vue'
 import './style.css'
 import './review/review.css'
 import './support/support.css'
+import './files/files.css'
 createApp(App).mount('#app')

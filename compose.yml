@@ -1,5 +1,22 @@
 name: ai-challenge-assistants-day31
 services:
+  cli:
+    profiles: ["tools"]
+    build: { context: ., dockerfile: Dockerfile.cli }
+    environment:
+      ASSISTANT_URL: http://backend:8080
+  workspace-mcp:
+    build: { context: ., args: { MODULE: workspace-mcp } }
+    environment:
+      WORKSPACE_SOURCE: /project
+      WORKSPACE_DATA: /app/workspaces
+    volumes:
+      - type: bind
+        source: ${GAME_PROJECT_PATH:-../ai-challenge-game}
+        target: /project
+        read_only: true
+      - "workspace-data:/app/workspaces"
+    restart: unless-stopped
   support-mcp:
     build: { context: ., args: { MODULE: support-mcp } }
     environment:
@@ -51,12 +68,14 @@ services:
       REVIEW_TOKEN_FILE: /run/day32/github-token
       REVIEW_RUNTIME_ENABLED: "false"
       SUPPORT_SERVICE_URL: http://support-mcp:8080
+      WORKSPACE_SERVICE_URL: http://workspace-mcp:8080
       ASSISTANTS_DB: /app/data/assistants.sqlite
     volumes:
       - "assistant-data:/app/data"
       - "./.local/day32:/run/day32:ro"
     ports: ["127.0.0.1:${API_PORT:-8682}:8080"]
     depends_on:
+      workspace-mcp: { condition: service_healthy }
       support-mcp: { condition: service_healthy }
       project-mcp: { condition: service_healthy }
       ollama: { condition: service_healthy }
@@ -74,3 +93,4 @@ volumes:
   ollama-runtime:
   assistant-data:
   support-data:
+  workspace-data:

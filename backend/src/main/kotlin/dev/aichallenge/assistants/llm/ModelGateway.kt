@@ -31,7 +31,7 @@ interface Generator { fun generate(provider: String, messages: List<LlmMessage>)
 
 /** HTTP-адаптеры локальных embeddings и двух независимых генераторов. */
 @Component
-class ModelGateway(private val config: RuntimeConfig, private val mapper: ObjectMapper) : Embeddings, Generator {
+class ModelGateway(private val config: RuntimeConfig, private val mapper: ObjectMapper) : Embeddings, Generator, ToolGenerator {
     private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build()
     /** Отправляет JSON; ошибки не содержат ключ, request body или сырой ответ провайдера. */
     private fun call(url: String, body: Any? = null, key: String? = null): JsonNode {
@@ -40,9 +40,11 @@ class ModelGateway(private val config: RuntimeConfig, private val mapper: Object
             if (key != null) builder.header("Authorization", "Bearer $key")
             if (body == null) builder.GET() else builder.header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(body)))
-            val response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString())
+            val response = http.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream())
+            val bytes = response.body().use { it.readNBytes(4_000_001) }
+            if (bytes.size > 4_000_000) throw AssistantFailure("MODEL_RESPONSE_LIMIT", "Ответ провайдера превысил допустимый размер.", 502)
             if (response.statusCode() !in 200..299) throw AssistantFailure("MODEL_HTTP", "Провайдер вернул HTTP ${response.statusCode()}. Повтор автоматически не отправлялся.", 502)
-            return mapper.readTree(response.body())
+            return mapper.readTree(bytes)
         } catch (e: AssistantFailure) { throw e }
         catch (_: Exception) { throw AssistantFailure("MODEL_UNAVAILABLE", "Модель не ответила или соединение прервано. Повтор автоматически не отправлялся.", 502) }
     }
@@ -85,6 +87,43 @@ class ModelGateway(private val config: RuntimeConfig, private val mapper: Object
         val usage = if (cloud) Usage(count(result.path("usage").path("prompt_tokens")), count(result.path("usage").path("completion_tokens")))
             else Usage(count(result.path("prompt_eval_count")), count(result.path("eval_count")))
         return Generation(text, model, usage, reason, (System.nanoTime() - started) / 1_000_000)
+    }
+    /** Один настоящий tool-calling запрос. Модель только предлагает вызовы; здесь они не исполняются. */
+    @Suppress("UNCHECKED_CAST")
+    override fun step(provider: String, messages: List<Map<String, Any?>>, tools: List<ToolDefinition>): ToolReply {
+        if (provider !in setOf("LOCAL", "DEEPSEEK")) throw AssistantFailure("PROVIDER", "Неизвестный провайдер")
+        val cloud = provider == "DEEPSEEK"
+        if (cloud && config.deepseekKey.isBlank()) throw AssistantFailure("KEY_MISSING", "Ключ DeepSeek не настроен.", 503)
+        val model = if (cloud) config.deepseekModel else config.localModel
+        val declarations = tools.map { mapOf("type" to "function", "function" to mapOf(
+            "name" to it.name, "description" to it.description, "parameters" to it.parameters)) }
+        val started = System.nanoTime()
+        val result = if (cloud) call("https://api.deepseek.com/chat/completions", mapOf(
+            "model" to model, "messages" to messages, "tools" to declarations, "tool_choice" to "auto",
+            "thinking" to mapOf("type" to "disabled"), "temperature" to 0.2, "stream" to false), config.deepseekKey)
+        else call(config.ollamaUrl + "/api/chat", mapOf("model" to model, "messages" to messages,
+            "tools" to declarations, "think" to false, "stream" to false, "keep_alive" to "5m",
+            "options" to mapOf("temperature" to 0.2, "num_ctx" to 16384)))
+        val node = if (cloud) result.path("choices").path(0).path("message") else result.path("message")
+        if (node.isMissingNode) throw AssistantFailure("INVALID_TOOL_REPLY", "Провайдер не вернул assistant message.", 502)
+        val raw = mapper.readValue(mapper.writeValueAsString(node), Map::class.java) as Map<String, Any?>
+        val calls = node.path("tool_calls").toList().mapIndexed { index, item ->
+            val function = item.path("function")
+            val args = function.path("arguments")
+            val parsed = if (args.isTextual) mapper.readTree(args.asText()) else args
+            if (!parsed.isObject) throw AssistantFailure("INVALID_TOOL_ARGUMENTS", "Модель вернула неверный формат аргументов.", 502)
+            RequestedTool(if (cloud) item.path("id").asText() else "local-$index", function.path("name").asText(),
+                mapper.readValue(mapper.writeValueAsString(parsed), Map::class.java) as Map<String, Any>)
+        }
+        if (calls.size > 8 || calls.map { it.id }.distinct().size != calls.size || calls.any { it.id.isBlank() })
+            throw AssistantFailure("INVALID_TOOL_REPLY", "Некорректные ID или число инструментальных вызовов.", 502)
+        val text = node.path("content").asText("")
+        if (calls.isEmpty() && text.isBlank()) throw AssistantFailure("EMPTY_ANSWER", "Модель вернула пустой результат.", 502)
+        fun count(value: JsonNode) = if (value.isIntegralNumber) value.asLong() else null
+        val usage = if (cloud) Usage(count(result.path("usage").path("prompt_tokens")), count(result.path("usage").path("completion_tokens")))
+            else Usage(count(result.path("prompt_eval_count")), count(result.path("eval_count")))
+        val reason = if (cloud) result.path("choices").path(0).path("finish_reason").asText("") else result.path("done_reason").asText("")
+        return ToolReply(raw, calls, Generation(text, result.path("model").asText(model), usage, reason, (System.nanoTime() - started) / 1_000_000))
     }
 }
 

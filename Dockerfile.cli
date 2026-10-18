@@ -1,0 +1,15 @@
+FROM gradle:9.6.1-jdk21 AS build
+WORKDIR /workspace
+COPY settings.gradle.kts build.gradle.kts gradle.properties ./
+COPY backend/build.gradle.kts backend/build.gradle.kts
+COPY project-mcp/build.gradle.kts project-mcp/build.gradle.kts
+COPY support-contracts/build.gradle.kts support-contracts/build.gradle.kts
+COPY support-mcp/build.gradle.kts support-mcp/build.gradle.kts
+COPY workspace-contracts/build.gradle.kts workspace-contracts/build.gradle.kts
+COPY workspace-mcp/build.gradle.kts workspace-mcp/build.gradle.kts
+COPY cli cli
+RUN --mount=type=cache,id=code-assistants-gradle,sharing=locked,target=/home/gradle/.gradle gradle --no-daemon :cli:test :cli:installDist
+FROM eclipse-temurin:21-jre
+WORKDIR /opt/assistant
+COPY --from=build /workspace/cli/build/install/assistant ./
+ENTRYPOINT ["/opt/assistant/bin/assistant"]

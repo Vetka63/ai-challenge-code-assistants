@@ -13,6 +13,12 @@ RAG по версиям PR, UI отчётов и шаблон workflow. Реал
 read-only Support MCP и отдельный FAQ RAG. Запись файлов дня 34 не включена.
 Ревью дня 32 в Compose этой ветки приостановлено.
 
+День 34: Workspace-агент самостоятельно ищет и читает файлы,
+сохраняет Markdown и diff в изолированной области. Есть Vue UI и Kotlin CLI.
+Основная игра не изменяется. [Архитектура](docs/day34-architecture.md),
+[запуск и проверка](docs/day34-guide.md).
+[Результаты проверки дня 34](docs/day34-verification.md).
+
 ## Проект-источник
 
 [AI Challenge Game](https://github.com/Vetka63/ai-challenge-game) — отдельная

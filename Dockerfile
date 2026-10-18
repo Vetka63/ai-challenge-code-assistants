@@ -5,6 +5,9 @@ COPY backend backend
 COPY project-mcp project-mcp
 COPY support-contracts support-contracts
 COPY support-mcp support-mcp
+COPY workspace-contracts workspace-contracts
+COPY workspace-mcp workspace-mcp
+COPY cli cli
 ARG MODULE=backend
 RUN --mount=type=cache,id=code-assistants-gradle,sharing=locked,target=/home/gradle/.gradle gradle --no-daemon :${MODULE}:test :${MODULE}:bootJar
 RUN cp ${MODULE}/build/libs/${MODULE}.jar /workspace/app.jar
