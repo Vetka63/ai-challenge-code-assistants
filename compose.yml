@@ -1,5 +1,11 @@
 name: ai-challenge-assistants-day31
 services:
+  support-mcp:
+    build: { context: ., args: { MODULE: support-mcp } }
+    environment:
+      SUPPORT_DATA: /app/support-data
+    volumes: ["support-data:/app/support-data"]
+    restart: unless-stopped
   project-mcp:
     build: { context: ., args: { MODULE: project-mcp } }
     environment:
@@ -43,12 +49,15 @@ services:
       REVIEW_REPOSITORY: ${REVIEW_REPOSITORY:-Vetka63/ai-challenge-game}
       REVIEW_AUTHOR: ${REVIEW_AUTHOR:-Vetka63}
       REVIEW_TOKEN_FILE: /run/day32/github-token
+      REVIEW_RUNTIME_ENABLED: "false"
+      SUPPORT_SERVICE_URL: http://support-mcp:8080
       ASSISTANTS_DB: /app/data/assistants.sqlite
     volumes:
       - "assistant-data:/app/data"
       - "./.local/day32:/run/day32:ro"
     ports: ["127.0.0.1:${API_PORT:-8682}:8080"]
     depends_on:
+      support-mcp: { condition: service_healthy }
       project-mcp: { condition: service_healthy }
       ollama: { condition: service_healthy }
     restart: unless-stopped
@@ -64,3 +73,4 @@ volumes:
     name: ${OLLAMA_MODELS_VOLUME:-ai-chat-local-llm_local-models}
   ollama-runtime:
   assistant-data:
+  support-data:

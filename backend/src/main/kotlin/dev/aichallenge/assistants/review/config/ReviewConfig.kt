@@ -11,7 +11,8 @@ class ReviewConfig(
     @Value("$" + "{REVIEW_REPOSITORY:Vetka63/ai-challenge-game}") val repository: String,
     @Value("$" + "{REVIEW_AUTHOR:Vetka63}") val author: String,
     @Value("$" + "{REVIEW_TOKEN_FILE:/run/day32/github-token}") private val tokenFile: String,
-    @Value("$" + "{REVIEW_WORKFLOW:ai-review.yml}") val workflow: String
+    @Value("$" + "{REVIEW_WORKFLOW:ai-review.yml}") val workflow: String,
+    @Value("$" + "{REVIEW_RUNTIME_ENABLED:true}") val runtimeEnabled: Boolean = true
 ) {
     init {
         require(Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+").matches(repository))
@@ -20,4 +21,9 @@ class ReviewConfig(
     }
     /** Локальный секрет доступен только HTTP-адаптеру GitHub. */
     fun token(): String = runCatching { Files.readString(Path.of(tokenFile)).trim() }.getOrDefault("")
+    /** Жёсткий эксплуатационный выключатель дня 32, независимый от сохранённой очереди. */
+    fun requireActive() {
+        if (!runtimeEnabled) throw dev.aichallenge.assistants.common.AssistantFailure("REVIEW_PAUSED",
+            "Ревью дня 32 приостановлено конфигурацией. Фоновые запросы и публикации отключены.", 409)
+    }
 }

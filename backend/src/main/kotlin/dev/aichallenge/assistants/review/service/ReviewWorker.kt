@@ -20,11 +20,12 @@ class ReviewWorker(private val repository: ReviewRepository, private val github:
     /** Работа без токена не создаёт шумных сетевых ошибок и не тратит API-квоты. */
     @Scheduled(fixedDelayString = "$" + "{REVIEW_POLL_MS:30000}", initialDelay = 10000)
     fun discover() {
-        if (!repository.settings().enabled || config.token().isBlank()) return
+        if (!config.runtimeEnabled || !repository.settings().enabled || config.token().isBlank()) return
         sync()
     }
     /** Ручная синхронизация не вызывает LLM; найденные задания сохраняются атомарно. */
     @Synchronized fun sync(): PollState {
+        config.requireActive()
         return try {
             val seen = store.list("review-delivery", DeliveryReceipt::class.java, 10000).map { it.id }.toSet()
             val batch = github.discover(seen)
@@ -40,6 +41,7 @@ class ReviewWorker(private val repository: ReviewRepository, private val github:
     /** Один общий ресурсный слот с /help; занятость не теряет QUEUED задания. */
     @Scheduled(fixedDelay = 2000, initialDelay = 3000)
     fun processNext() {
+        if (!config.runtimeEnabled) return
         val job = repository.list().lastOrNull {
             it.status == ReviewStatus.QUEUED || (it.status == ReviewStatus.REPORT_READY && it.publishRequested && it.errorCode == null)
         } ?: return

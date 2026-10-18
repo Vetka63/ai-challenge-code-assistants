@@ -38,6 +38,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
   <main class="review-panel">
     <header class="topbar"><div><strong>Ревью pull request</strong><small>День 32 · локальный ассистент + GitHub Actions</small></div><a href="#chat/">← К чату</a></header>
     <div class="review-scroll">
+      <p v-if="settings?.runtimeEnabled === false" class="banner warning" role="status">День 32 приостановлен. Очередь не обрабатывается, обращения к GitHub/LLM и публикации автоматически не выполняются.</p>
       <p class="banner">GitHub создаёт задание. Этот backend выполняет RAG и анализ. Успех Action ≠ готовое ревью.</p>
       <div v-if="error" role="alert" class="alert">{{ error }}</div>
       <div v-if="notice" role="status" class="banner">{{ notice }}</div>
@@ -46,8 +47,8 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
           <p class="muted">{{ settings?.tokenConfigured ? 'Токен сохранён на backend' : 'Токен ещё не настроен' }} · входящих подключений нет</p></div>
         <div class="review-controls">
           <button @click="action(() => api('/reviews/connection', {}), 'Чтение GitHub доступно. Право публикации проверится при записи комментария.')" :disabled="busy || !settings?.tokenConfigured">Проверить подключение</button>
-          <button @click="action(() => api('/reviews/settings', { enabled: !settings?.enabled }))" :disabled="busy || !settings?.tokenConfigured">{{ settings?.enabled ? 'Отключить автоматику' : 'Включить автоматику' }}</button>
-          <button @click="action(() => api('/reviews/sync', {}), 'Результат синхронизации обновлён. Причины пропуска заданий показаны ниже.')" :disabled="busy || !settings?.tokenConfigured">Забрать и запустить задания</button>
+          <button @click="action(() => api('/reviews/settings', { enabled: !settings?.enabled }))" :disabled="busy || !settings?.tokenConfigured || settings?.runtimeEnabled === false">{{ settings?.enabled ? 'Отключить автоматику' : 'Включить автоматику' }}</button>
+          <button @click="action(() => api('/reviews/sync', {}), 'Результат синхронизации обновлён. Причины пропуска заданий показаны ниже.')" :disabled="busy || !settings?.tokenConfigured || settings?.runtimeEnabled === false">Забрать и запустить задания</button>
         </div>
         <p class="quiet">Автоматика: {{ settings?.enabled ? 'включена, проверка каждые 30 секунд' : 'выключена' }}. До {{ settings?.dailyAttemptLimit || 20 }} попыток генерации за 24 часа.</p>
         <p v-if="settings?.poll.checkedAt" class="quiet">Последняя синхронизация: {{ new Date(settings.poll.checkedAt).toLocaleString() }} · найдено {{ settings.poll.discovered }}</p>
@@ -58,7 +59,7 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
         <label>Номер PR<input v-model.number="prNumber" type="number" min="1" max="10000000" placeholder="Например, 1" required></label>
         <label>Модель<select v-model="provider"><option value="DEEPSEEK">DeepSeek Pro</option><option value="LOCAL">Локальная Ollama</option></select></label>
         <label class="review-checkbox"><input v-model="publish" type="checkbox">После анализа опубликовать в PR</label>
-        <button class="primary" :disabled="busy || !settings?.tokenConfigured || !prNumber">Запустить ревью</button>
+        <button class="primary" :disabled="busy || !settings?.tokenConfigured || !prNumber || settings?.runtimeEnabled === false">Запустить ревью</button>
       </form>
       <div class="review-layout">
         <section class="review-list"><h2>Проверки · {{ jobs.length }}</h2>
@@ -90,8 +91,8 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
             </details>
           </template>
           <div class="review-controls review-bottom">
-            <button v-if="focused.status === 'REPORT_READY'" :disabled="busy" @click="action(() => api('/reviews/' + focused!.id + '/publish', {}))">Опубликовать сохранённый отчёт — без LLM</button>
-            <button v-if="['FAILED', 'INTERRUPTED'].includes(focused.status) && !focused.report" :disabled="busy" @click="action(() => api('/reviews/' + focused!.id + '/retry-analysis', { confirmed: true }))">Повторить анализ — новый вызов LLM</button>
+            <button v-if="focused.status === 'REPORT_READY'" :disabled="busy || settings?.runtimeEnabled === false" @click="action(() => api('/reviews/' + focused!.id + '/publish', {}))">Опубликовать сохранённый отчёт — без LLM</button>
+            <button v-if="['FAILED', 'INTERRUPTED'].includes(focused.status) && !focused.report" :disabled="busy || settings?.runtimeEnabled === false" @click="action(() => api('/reviews/' + focused!.id + '/retry-analysis', { confirmed: true }))">Повторить анализ — новый вызов LLM</button>
           </div>
         </article>
       </div>

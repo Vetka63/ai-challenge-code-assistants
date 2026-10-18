@@ -4,6 +4,7 @@ plugins {
     id("org.springframework.boot")
 }
 dependencies {
+    implementation(project(":support-contracts"))
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.1"))
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-validation")

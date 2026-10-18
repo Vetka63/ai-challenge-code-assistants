@@ -9,7 +9,9 @@
 В ветке дня 32 добавлен домен review: GitHub polling, очередь SQLite,
 RAG по версиям PR, UI отчётов и шаблон workflow. Реальная автоматика
 требует локальный GitHub-токен и опубликованный workflow игры.
-Поддержка и запись файлов дней 33–34 не включены.
+В ветке дня 33 добавлены создание обращений в UI, JSON-хранилище,
+read-only Support MCP и отдельный FAQ RAG. Запись файлов дня 34 не включена.
+Ревью дня 32 в Compose этой ветки приостановлено.
 
 ## Проект-источник
 
@@ -33,6 +35,9 @@ RAG по версиям PR, UI отчётов и шаблон workflow. Реал
 День 32: [архитектура](docs/day32-architecture.md),
 [запуск и проверка](docs/day32-guide.md), [GitHub-токен](docs/day32-github-token.md).
 Для продолжения начните с [контекста разработки](docs/assistant-handoff.md).
+День 33: [архитектура](docs/day33-architecture.md),
+[проверка в UI](docs/day33-guide.md).
+[Результаты проверки дня 33](docs/day33-verification.md).
 Подробнее: [контекст и границы](docs/project-context.md),
 [связь репозиториев](docs/repository-link.md), [правила работы](AGENTS.md).
 

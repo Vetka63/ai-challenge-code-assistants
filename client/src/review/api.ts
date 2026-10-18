@@ -13,7 +13,7 @@ export interface ReviewJob {
   }
 }
 export interface ReviewSettings {
-  repository: string; author: string; workflow: string; tokenConfigured: boolean; enabled: boolean; dailyAttemptLimit: number
+  repository: string; author: string; workflow: string; tokenConfigured: boolean; enabled: boolean; runtimeEnabled?: boolean; dailyAttemptLimit: number
   poll: { checkedAt: string | null; error: string | null; discovered: number }
 }
 export const reviewLabels: Record<string, string> = {

@@ -1,0 +1,24 @@
+{
+  "capturedAt": "2026-10-16",
+  "version": "HeroAnimations",
+  "sourceKind": "working-tree",
+  "note": "Учебный снимок, не опубликованный релиз; JSON тикетов в корпус не входит",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "746cce637cb4a1676c9f046d71c213b068163dfb38f95467482455211b522f38"
+    },
+    {
+      "path": "docs/digital-world.md",
+      "sha256": "8b023d7dd5454cbac528708572093f7c4e99654e2672badeef96bd2606445d64"
+    },
+    {
+      "path": "docs/act-one.md",
+      "sha256": "26f01498e5e3c4a49c1c2997d1f4530c359851bd6ed091cd142a3e8aa26297a9"
+    },
+    {
+      "path": "docs/tactical-crowd.md",
+      "sha256": "572263d991bdc5e4189f0e85a397f2c0f3bb701ec4e3ec35b6d9e214ad0783b7"
+    }
+  ]
+}

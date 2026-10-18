@@ -3,9 +3,12 @@ import { useWorkspace } from './useWorkspace'
 import { statusLabel } from './api'
 import { ref, onMounted, onUnmounted } from 'vue'
 import ReviewPanel from './review/ReviewPanel.vue'
+import SupportPanel from './support/SupportPanel.vue'
 const reviewMode = ref(typeof location !== 'undefined' && location.hash.startsWith('#reviews'))
-function route() { reviewMode.value = location.hash.startsWith('#reviews') }
+const supportMode = ref(typeof location !== 'undefined' && location.hash.startsWith('#support'))
+function route() { reviewMode.value = location.hash.startsWith('#reviews'); supportMode.value = location.hash.startsWith('#support') }
 function openReviews() { location.hash = 'reviews'; sidebar.value = false }
+function openSupport() { location.hash = 'support'; sidebar.value = false }
 onMounted(() => window.addEventListener('hashchange', route))
 onUnmounted(() => window.removeEventListener('hashchange', route))
 const { chats, turns, selected, config, context, contextEvents, latest, ready, question, provider,
@@ -19,13 +22,14 @@ const examples = [
 </script>
 
 <template>
-  <div class="workspace" :class="{ 'without-inspector': !inspector, 'review-mode': reviewMode }">
+  <div class="workspace" :class="{ 'without-inspector': !inspector, 'review-mode': reviewMode, 'support-mode': supportMode }">
     <nav class="navigation" :class="{ open: sidebar }" aria-label="Диалоги">
-      <div class="brand"><span class="brand-icon">⌘</span><div>Project Desk<small>AI Challenge · дни 31–32</small></div></div>
+      <div class="brand"><span class="brand-icon">⌘</span><div>Project Desk<small>AI Challenge · дни 31–33</small></div></div>
       <button class="new-chat" @click="newChat">＋ Новый диалог</button>
       <div class="nav-label">Ассистенты</div>
       <div class="agent-card"><span>◇</span><div>Помощник разработчика<small>README · docs · MCP</small></div></div>
       <button class="new-chat" @click="openReviews">⌕ Ревью PR · день 32</button>
+      <button class="new-chat" @click="openSupport">♡ Поддержка · день 33</button>
       <div class="nav-label">Диалоги <span>{{ chats.length }}</span></div>
       <div class="chat-list">
         <button v-for="chat in chats" :key="chat.id" :class="{ active: selected === chat.id }" @click="selectChat(chat.id)">{{ chat.title }}</button>
@@ -33,7 +37,8 @@ const examples = [
       </div>
       <div class="nav-footer"><span class="safe-dot"></span> Только чтение проекта<small>Игра работает независимо</small></div>
     </nav>
-    <ReviewPanel v-if="reviewMode" />
+    <SupportPanel v-if="supportMode" />
+    <ReviewPanel v-else-if="reviewMode" />
     <main v-else class="main-panel">
       <header class="topbar">
         <button class="icon mobile-nav" @click="sidebar = !sidebar" aria-label="Открыть диалоги">☰</button>
@@ -84,7 +89,7 @@ const examples = [
         <p class="composer-note">{{ provider === 'DEEPSEEK' ? 'Вопрос и выбранные фрагменты будут отправлены DeepSeek.' : 'Генерация и поиск выполняются локально.' }} Enter — отправить · Shift+Enter — новая строка</p>
       </footer>
     </main>
-    <aside v-if="inspector && !reviewMode" class="inspector" aria-label="Контекст проекта">
+    <aside v-if="inspector && !reviewMode && !supportMode" class="inspector" aria-label="Контекст проекта">
       <div class="inspector-heading"><h2>Контекст проекта</h2><button class="icon" @click="refreshContext" aria-label="Обновить MCP-контекст">↻</button></div>
       <div class="project-card">
         <strong>ai-challenge-game</strong>

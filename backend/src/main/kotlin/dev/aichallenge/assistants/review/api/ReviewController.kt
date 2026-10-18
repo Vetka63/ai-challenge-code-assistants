@@ -18,19 +18,24 @@ class ReviewController(private val repository: ReviewRepository, private val use
     @GetMapping fun list() = repository.list()
     @GetMapping("/{id}") fun get(@PathVariable id: String) = repository.get(id)
     @GetMapping("/settings") fun settings() = mapOf("repository" to config.repository, "author" to config.author,
-        "workflow" to config.workflow, "tokenConfigured" to config.token().isNotBlank(), "enabled" to repository.settings().enabled,
+        "workflow" to config.workflow, "tokenConfigured" to config.token().isNotBlank(), "enabled" to (config.runtimeEnabled && repository.settings().enabled),
+        "runtimeEnabled" to config.runtimeEnabled,
         "poll" to repository.poll(), "dailyAttemptLimit" to 20)
     @PostMapping("/settings") fun settings(@RequestBody input: ReviewSettings): Map<String, Any> {
-        if (input.enabled) github.verifyConnection()
+        if (input.enabled) { config.requireActive(); github.verifyConnection() }
         repository.settings(input); return settings()
     }
     @PostMapping("/connection") fun connection() = mapOf("repository" to github.verifyConnection(), "readAccess" to true,
         "message" to "Чтение доступно. Право записи проверяется при публикации комментария.")
     @PostMapping("/sync") fun sync() = worker.sync()
-    @PostMapping fun create(@RequestBody input: StartReview) = ResponseEntity.accepted().body(useCase.enqueue(input.pr, input.provider, input.publish))
+    @PostMapping fun create(@RequestBody input: StartReview): ResponseEntity<ReviewJob> {
+        config.requireActive()
+        return ResponseEntity.accepted().body(useCase.enqueue(input.pr, input.provider, input.publish))
+    }
     @PostMapping("/{id}/retry-analysis") fun retry(@PathVariable id: String, @RequestBody input: RetryReview) =
-        ResponseEntity.accepted().body(useCase.retry(id, input.confirmed))
-    @PostMapping("/{id}/publish") fun publish(@PathVariable id: String) = ResponseEntity.accepted().body(useCase.requestPublication(id))
+        config.requireActive().let { ResponseEntity.accepted().body(useCase.retry(id, input.confirmed)) }
+    @PostMapping("/{id}/publish") fun publish(@PathVariable id: String) =
+        config.requireActive().let { ResponseEntity.accepted().body(useCase.requestPublication(id)) }
     @GetMapping("/{id}/report") fun report(@PathVariable id: String): ResponseEntity<String> = ResponseEntity.ok()
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=day32-" + id + ".md")
         .contentType(MediaType.parseMediaType("text/markdown;charset=UTF-8")).body(reviewMarkdown(repository.get(id)))

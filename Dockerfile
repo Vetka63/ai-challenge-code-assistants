@@ -3,6 +3,8 @@ WORKDIR /workspace
 COPY settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY backend backend
 COPY project-mcp project-mcp
+COPY support-contracts support-contracts
+COPY support-mcp support-mcp
 ARG MODULE=backend
 RUN --mount=type=cache,id=code-assistants-gradle,sharing=locked,target=/home/gradle/.gradle gradle --no-daemon :${MODULE}:test :${MODULE}:bootJar
 RUN cp ${MODULE}/build/libs/${MODULE}.jar /workspace/app.jar

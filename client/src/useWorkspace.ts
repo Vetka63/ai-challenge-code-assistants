@@ -96,7 +96,7 @@ export function useWorkspace() {
       if (raw) {
         try { receipt.value = JSON.parse(raw) as Receipt } catch { localStorage.removeItem('desk-receipt') }
       }
-      const id = location.hash.startsWith('#chat/') ? location.hash.slice(6) : localStorage.getItem('desk-chat')
+      const id = location.hash.startsWith('#chat/') ? location.hash.slice(6) : !location.hash ? localStorage.getItem('desk-chat') : null
       if (id && list.some(c => c.id === id)) await selectChat(id)
       timer = setInterval(async () => {
         if (polling) return
